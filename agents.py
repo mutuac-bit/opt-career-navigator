@@ -146,6 +146,22 @@ def search_agent(role: str, city: str, profile: dict) -> str:
         formatted_output += f"   Source: {job['source']}\n"
         formatted_output += f"   Content Preview: {job['content'][:300]}\n\n"
     
+    # Use lightweight model to refine formatting
+    try:
+        response = groq_client.chat.completions.create(
+            # Fast lightweight model - search only needs speed and formatting, not deep reasoning
+            model="llama-3.1-8b-instant",
+            messages=[
+                {"role": "system", "content": "Format job search results clearly and concisely."},
+                {"role": "user", "content": formatted_output},
+            ],
+            temperature=0.1,
+            max_tokens=2048,
+        )
+        formatted_output = response.choices[0].message.content
+    except Exception as e:
+        print(f"Warning: Could not enhance formatting with Groq: {str(e)}")
+    
     print(f"✅ Search Agent: Found {len(all_results)} job postings")
     return formatted_output
 
@@ -195,12 +211,13 @@ For each job, provide a detailed sponsorship analysis with the rating categories
     
     try:
         response = groq_client.chat.completions.create(
+            # Precision model - visa risk assessment must be consistent and accurate, zero temperature
             model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            temperature=0.7,
+            temperature=0.0,
             max_tokens=4096,
         )
         
@@ -274,12 +291,13 @@ Provide a comprehensive ranked list with detailed scoring for each job."""
     
     try:
         response = groq_client.chat.completions.create(
+            # Reasoning model - scoring nuance requires smarter model with slight creativity for recommendations
             model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            temperature=0.7,
+            temperature=0.2,
             max_tokens=4096,
         )
         
