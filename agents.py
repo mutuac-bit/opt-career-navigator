@@ -73,26 +73,54 @@ def search_agent(role: str, city: str, profile: dict) -> str:
     
     print(f"\n🔍 Search Agent: Searching for {role} positions in {city}...")
     
-    # Build broader search queries without restrictive visa language
-    queries = [
-        f"{role} jobs {city} 2025",
-        f"{role} jobs {city} hiring",
-        f"{role} jobs {city}",
-    ]
-    
+    # Primary search: keep query simple and avoid visa/sponsorship language
+    primary_query = f"{role} jobs {city}"
+
     all_results = []
     seen_urls = set()
-    
-    for query in queries:
+
+    try:
+        results = tavily_client.search(
+            query=primary_query,
+            search_depth="basic",
+            max_results=10,
+            include_domains=["indeed.com", "linkedin.com", "glassdoor.com", "ziprecruiter.com"],
+        )
+        print(f"Raw Tavily response for query '{primary_query}':\n{json.dumps(results, indent=2, default=str)}\n")
+
+        results_list = results.get("results", []) if isinstance(results, dict) else (results if isinstance(results, list) else [])
+
+        for result in results_list:
+            url = result.get("url", "N/A")
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
+            all_results.append({
+                "title": result.get("title", "No title"),
+                "url": url,
+                "content": result.get("content", ""),
+                "source": result.get("source", "N/A"),
+            })
+
+    except Exception as e:
+        print(f"Error in primary search query '{primary_query}': {str(e)}")
+        results_list = []
+
+    # Fallback: if no results, try a second, broader query and combine
+    if len(results_list) == 0:
+        fallback_query = f"{role} {city} hiring 2025"
         try:
-            results = tavily_client.search(
-                query=query,
+            fb_results = tavily_client.search(
+                query=fallback_query,
+                search_depth="basic",
                 max_results=10,
-                include_answer=True,
+                include_domains=["indeed.com", "linkedin.com", "glassdoor.com", "ziprecruiter.com"],
             )
-            print(f"Raw Tavily response for query '{query}':\n{json.dumps(results, indent=2, default=str)}\n")
-            
-            for result in results.get("results", []):
+            print(f"Raw Tavily response for fallback query '{fallback_query}':\n{json.dumps(fb_results, indent=2, default=str)}\n")
+
+            fb_list = fb_results.get("results", []) if isinstance(fb_results, dict) else (fb_results if isinstance(fb_results, list) else [])
+
+            for result in fb_list:
                 url = result.get("url", "N/A")
                 if url in seen_urls:
                     continue
@@ -103,9 +131,9 @@ def search_agent(role: str, city: str, profile: dict) -> str:
                     "content": result.get("content", ""),
                     "source": result.get("source", "N/A"),
                 })
+
         except Exception as e:
-            print(f"Error in search query '{query}': {str(e)}")
-            continue
+            print(f"Error in fallback search query '{fallback_query}': {str(e)}")
     
     # Format results for next agent
     formatted_output = f"SEARCH RESULTS FOR: {role} in {city}\n"
