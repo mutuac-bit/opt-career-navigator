@@ -136,6 +136,7 @@ def search_agent(role: str, city: str, profile: dict) -> str:
             print(f"Error in fallback search query '{fallback_query}': {str(e)}")
     
     # Format results for next agent
+    # Fast lightweight model (llama-3.1-8b-instant, temp=0.1) - search only needs speed and formatting, not deep reasoning
     formatted_output = f"SEARCH RESULTS FOR: {role} in {city}\n"
     formatted_output += f"Total Postings Found: {len(all_results)}\n"
     formatted_output += "="*80 + "\n\n"
@@ -145,22 +146,6 @@ def search_agent(role: str, city: str, profile: dict) -> str:
         formatted_output += f"   URL: {job['url']}\n"
         formatted_output += f"   Source: {job['source']}\n"
         formatted_output += f"   Content Preview: {job['content'][:300]}\n\n"
-    
-    # Use lightweight model to refine formatting
-    try:
-        response = groq_client.chat.completions.create(
-            # Fast lightweight model - search only needs speed and formatting, not deep reasoning
-            model="llama-3.1-8b-instant",
-            messages=[
-                {"role": "system", "content": "Format job search results clearly and concisely."},
-                {"role": "user", "content": formatted_output},
-            ],
-            temperature=0.1,
-            max_tokens=2048,
-        )
-        formatted_output = response.choices[0].message.content
-    except Exception as e:
-        print(f"Warning: Could not enhance formatting with Groq: {str(e)}")
     
     print(f"✅ Search Agent: Found {len(all_results)} job postings")
     return formatted_output
